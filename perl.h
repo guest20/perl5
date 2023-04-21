@@ -1315,6 +1315,30 @@ typedef enum {
 /* end of makedef.pl logic duplication
  * ========================================================================= */
 
+#ifdef DEBUG_SETLOCALE_INCONSISTENCIES
+#  if ! defined(DEBUGGING) || defined(USE_POSIX_2008) || ! defined(USE_LOCALE_CTYPE)
+#    undef DEBUG_SETLOCALE_INCONSISTENCIES
+#  endif
+#endif
+#ifdef DEBUG_SETLOCALE_INCONSISTENCIES
+#  define PERL_ASSERT_CATEGORY_EQ_CTYPE(cat)                                \
+        STMT_START {                                                        \
+            const char * ctype = setlocale(LC_CTYPE, NULL);                 \
+            const char * other = setlocale(cat, NULL);                      \
+            if (strNE(other, ctype)) {                                      \
+                dTHX;                                                       \
+                Perl_locale_panic(Perl_form(aTHX_                           \
+                                            "LC_CTYPE=%s, category %d=%s",  \
+                                            ctype, cat, other),             \
+                                  __LINE__, __FILE__, __LINE__);            \
+                assert(strEQ(setlocale(cat, NULL),                          \
+                             setlocale(LC_CTYPE, NULL)));                   \
+            }                                                               \
+        } STMT_END
+#else
+#  define PERL_ASSERT_CATEGORY_EQ_CTYPE(cat)  NOOP
+#endif
+
 #ifdef PERL_CORE
 
 /* These typedefs are used in locale.c only (and documented there), but defined
@@ -7421,6 +7445,7 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
 #ifdef LC_TIME_LOCK
 #  define STRFTIME_LOCK  /* Needs one exclusive lock */                     \
             STMT_START { LC_CTYPE_LOCK; LC_TIME_LOCK; ENV_READ_LOCK;        \
+                         PERL_ASSERT_CATEGORY_EQ_CTYPE(LC_TIME);            \
                        } STMT_END
 #  define STRFTIME_UNLOCK                                                   \
             STMT_START { ENV_READ_UNLOCK; LC_TIME_UNLOCK; LC_CTYPE_UNLOCK;  \
