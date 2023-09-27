@@ -2,6 +2,11 @@
  *
 123456789112345678921234567893123456789412345678951234567896123456789712345678981
  *    strptime
+ *    NO_USE_LOCALE_foo is not the same as no LC_foo
+ *    what deltas for stdize changes?
+subroutines in this file, so as to reorder them
+ *    a bunch of copies aren't needed on nonthreaded
+ *
  *    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
  *    2002, 2003, 2005, 2006, 2007, 2008 by Larry Wall and others
  *
@@ -88,7 +93,7 @@
  * 1) Raw posix_setlocale().  This implementation is basically the libc
  *    setlocale(), with possibly minor tweaks.  This is used for startup, and
  *    always for unthreaded perls, and when the API for safe locale threading
- *    is identical to the unsafe API (Windows, currently).
+ *    is XXX identical to the unsafe API (Windows, currently).
  *
  *    This implementation is composed of two layers:
  *      a)  posix_setlocale() implements the libc setlocale().  In most cases,
@@ -3686,7 +3691,8 @@ S_find_locale_from_environment(pTHX_ const locale_category_index index)
     /* For each desired category, use any corresponding environment variable;
      * or the default if none such exists. */
     bool is_disparate = false;  /* Assume is uniform until proven otherwise */
-    for (unsigned i = lower; i <= upper; i++) {
+    // XXX i should be locale_category_index
+    for (unsigned int i = lower; i <= upper; i++) {
         const char * const env_override = PerlEnv_getenv(category_names[i]);
         unsigned int j = i - offset;
 
@@ -4013,6 +4019,7 @@ Perl_set_numeric_standard(pTHX_ const char * const file, const line_t line)
     DEBUG_L(PerlIO_printf(Perl_debug_log, "Setting LC_NUMERIC locale to"
                                           " standard C; called from %s: %"
                                           LINE_Tf "\n", file, line));
+    /* XXX Maybe not in init? assert(PL_locale_mutex_depth > 0);*/
 
     void_setlocale_c_with_caller(LC_NUMERIC, "C", file, line);
     PL_numeric_standard = TRUE;
@@ -4045,7 +4052,7 @@ Perl_set_numeric_underlying(pTHX_ const char * const file, const line_t line)
     DEBUG_L(PerlIO_printf(Perl_debug_log, "Setting LC_NUMERIC locale to %s;"
                                           " called from %s: %" LINE_Tf "\n",
                                           PL_numeric_name, file, line));
-    /* Maybe not in init? assert(PL_locale_mutex_depth > 0);*/
+    /* XXX Maybe not in init? assert(PL_locale_mutex_depth > 0);*/
 
     void_setlocale_c_with_caller(LC_NUMERIC, PL_numeric_name, file, line);
     PL_numeric_underlying = TRUE;
@@ -4748,6 +4755,9 @@ S_win32_setlocale(pTHX_ int category, const char* locale)
 
         Safefree(PL_cur_LC_ALL);
         PL_cur_LC_ALL = result;
+
+        DEBUG_L(PerlIO_printf(Perl_debug_log, "new PL_cur_LC_ALL=%s\n",
+                                               PL_cur_LC_ALL));
     }
 
     DEBUG_L(PerlIO_printf(Perl_debug_log, "new PL_cur_LC_ALL=%s\n",
@@ -5120,6 +5130,7 @@ S_is_locale_utf8(pTHX_ const char * locale)
 
 #      endif
 #      if defined(HAS_MBTOWC) || defined(HAS_MBRTOWC)
+    // XXX on windows could use _l
 
     /* If libc mbtowc() evaluates the bytes that form the REPLACEMENT CHARACTER
      * as that Unicode code point, this has to be a UTF-8 locale; otherwise it
@@ -7791,6 +7802,7 @@ S_strftime_tm(pTHX_ const char *fmt, const struct tm *mytm)
 
         STRFTIME_LOCK;
         errno = 0;
+        // XXX strftime_l on Win32, but we toggled before calling this routine
         int len = strftime(buf, bufsize, fmt, mytm);
         STRFTIME_UNLOCK;
 
