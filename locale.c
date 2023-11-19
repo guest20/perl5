@@ -5064,6 +5064,13 @@ S_my_localeconv(pTHX_ const int item)
                                           lconv_monetary_strings
                                         };
 
+    /* The LC_MONETARY category also has some integer-valued fields, whose
+     * information is kept in a separate parallel array to 'strings' */
+    const lconv_offset_t * integers[2] = {
+                                           NULL,
+                                           lconv_integers
+                                         };
+
     /* If we aren't paying attention to a given category, use LC_CTYPE instead;
      * If not paying attention to that either, the code below should end up not
      * using this.  Make sure that things blow up if that avoidance gets lost,
@@ -5108,10 +5115,6 @@ S_my_localeconv(pTHX_ const int item)
     /* This will be either 'numeric_locale' or 'monetary_locale' depending on
      * what we are working on at the moment */
     const char * locale;
-
-    /* The LC_MONETARY category also has some integer-valued fields, whose
-     * information is kept in a separate list */
-    const lconv_offset_t * integers = lconv_integers;
 
 #  ifdef HAS_SOME_LANGINFO
 
@@ -5178,7 +5181,6 @@ S_my_localeconv(pTHX_ const int item)
             strings[NUMERIC_OFFSET] = thousands_sep_string;
 
           numeric_common:
-            integers = NULL;
             index_bits = OFFSET_TO_BIT(NUMERIC_OFFSET);
             locale = numeric_locale = PL_numeric_name;
             break;
@@ -5198,7 +5200,7 @@ S_my_localeconv(pTHX_ const int item)
             }
 
             strings[MONETARY_OFFSET] = CURRENCY_SYMBOL_ADDRESS;
-            integers = P_CS_PRECEDES_ADDRESS;
+            integers[MONETARY_OFFSET] = P_CS_PRECEDES_ADDRESS;
 
             index_bits = OFFSET_TO_BIT(MONETARY_OFFSET);
             break;
@@ -5264,10 +5266,7 @@ S_my_localeconv(pTHX_ const int item)
         populate_hash_from_localeconv(hv,
                                       numeric_locale,
                                       OFFSET_TO_BIT(NUMERIC_OFFSET),
-                                      strings,
-                                      NULL      /* There are no NUMERIC integer
-                                                   fields */
-                                     );
+                                      strings, integers);
     }
 
     /* Here, the hash has been completely populated.
@@ -5337,12 +5336,14 @@ S_my_localeconv(pTHX_ const int item)
                 SvUTF8_on(*value);
             }
         }
-    }   /* End of fixing up UTF8ness */
 
+        if (integers[i] == NULL) {
+            continue;
+        }
 
-    /* Examine each integer */
-    for (; integers; integers++) {
-        const char * name = integers->name;
+        /* And each integer */
+        for (const lconv_offset_t *intp = integers[i]; intp->name; intp++) {
+            const char * name = intp->name;
 
         if (! name) {   /* Reached the end */
             break;
@@ -5356,6 +5357,7 @@ S_my_localeconv(pTHX_ const int item)
         /* Change CHAR_MAX to -1 */
         if (SvIV(*value) == CHAR_MAX) {
             sv_setiv(*value, -1);
+        }
         }
     }
 
@@ -5378,8 +5380,8 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
                                        * monetary */
                                       const lconv_offset_t * strings[2],
 
-                                      /* And to the monetary integer fields */
-                                      const lconv_offset_t * integers)
+                                      /* And similarly the integer fields */
+                                      const lconv_offset_t * integers[2])
 {
     PERL_ARGS_ASSERT_POPULATE_HASH_FROM_LOCALECONV;
     PERL_UNUSED_ARG(which_mask);    /* Some configurations don't use this;
@@ -5528,14 +5530,17 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
             category_strings++;
         }
 
-        /* Add any int fields to the HV* */
-        if (i == MONETARY_OFFSET && integers) {
-            while (integers->name) {
+        /* Add any int fields to the HV*. */
+        if (integers[i]) {
+            const lconv_offset_t * current = integers[i];
+            while (current->name) {
                 const char value = *((const char *)(  lcbuf_as_string
-                                                    + integers->offset));
-                (void) hv_store(hv, integers->name,
-                                strlen(integers->name), newSViv(value), 0);
-                integers++;
+                                                    + current->offset));
+                (void) hv_store(hv,
+                                current->name, strlen(current->name),
+                                newSViv(value),
+                                0);
+                current++;
             }
         }
     }   /* End of loop through the fields */
