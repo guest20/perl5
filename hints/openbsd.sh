@@ -154,7 +154,8 @@ esac
 #XXX
 # https://marc.info/?l=openbsd-bugs&m=155364568608759&w=2
 # which is being fixed.  In the meantime, forbid POSIX 2008 locales
-d_newlocale="$undef"
+#d_newlocale="$undef"
+ccflags="$ccflags -DNO_LOCALE_NUMERIC -DNO_LOCALE_COLLATE -DNO_LOCALE_MONETARY -DNO_LOCALE_TIME -DNO_LOCALE_MESSAGES"
 
 # Seems that OpenBSD returns bogus values in _Thread_local variables in code in
 # shared objects, so we need to disable it. See GH #19109
