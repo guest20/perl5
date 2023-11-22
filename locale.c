@@ -6849,12 +6849,37 @@ S_my_langinfo_i(pTHX_
  * Some platforms don't deal well with non-ASCII strings in locale X when
  * LC_CTYPE is not in X.  (Actually it is probably when X is UTF-8 and LC_CTYPE
  * isn't, or vice versa).  There is explicit code to bring the categories into
- * sync.  This doesn't seem to be a problem with nl_langinfo(), so that
+ * sync.  This XXX doesn't seem to be a problem with nl_langinfo(), so that
  * implementation doesn't currently worry about it.  But it is a problem on
  * Windows boxes, which don't have nl_langinfo(). */
 
 /*--------------------------------------------------------------------------*/
-#  if defined(HAS_NL_LANGINFO) /* nl_langinfo() is available.  */
+#  if defined(USE_POSIX_2008_LOCALE) && defined(HAS_NL_LANGINFO_L)
+
+    locale_t langinfo_obj = newlocale(LC_ALL_MASK, locale, 0);
+    if (! langinfo_obj) {
+        locale_panic_(Perl_form(aTHX_ "Cannot create locale object"));
+    }
+
+    /* We have to lock because other threads using plain nl_langinfo() can zap
+     * this or vice versa */
+    gwLOCALE_LOCK;
+    retval = save_to_buffer(nl_langinfo_l(item, langinfo_obj),
+                            retbufp, retbuf_sizep);
+    gwLOCALE_UNLOCK;
+
+    freelocale(langinfo_obj);
+
+    if (utf8ness) {
+        *utf8ness = get_locale_string_utf8ness_i(retval,
+                                                LOCALE_UTF8NESS_UNKNOWN,
+                                                locale, cat_index);
+    }
+
+    return retval;
+
+#  elif defined(HAS_NL_LANGINFO) /* nl_langinfo() is available, but not
+                                    nl_langinfo_l().  */
 
     /* The only difference between the normal and emulation is the type of
      * locks.  We have to always lock because this nl_langinfo() isn't thread
