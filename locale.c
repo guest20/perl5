@@ -4626,6 +4626,10 @@ S_is_locale_utf8(pTHX_ const char * locale)
         return PL_in_utf8_CTYPE_locale;
     }
 
+    if (isNAME_C_OR_POSIX(locale)) {
+        return false;
+    }
+
     codeset = my_langinfo_c(CODESET, LC_CTYPE, locale,
                             &scratch_buffer, NULL, NULL);
     retval = is_codeset_name_UTF8(codeset);
