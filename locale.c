@@ -4627,6 +4627,20 @@ S_is_locale_utf8(pTHX_ const char * locale)
      * First, toggle to the desired locale so can query its state */
     const char * orig_CTYPE_locale = toggle_locale_c(LC_CTYPE, locale);
 
+#      ifdef MB_CUR_MAX
+
+    /* If there are fewer bytes available in this locale than are required
+     * to represent the largest legal UTF-8 code point, this isn't a UTF-8
+     * locale. */
+    LC_CTYPE_LOCK;
+    const int mb_cur_max = MB_CUR_MAX;
+    LC_CTYPE_UNLOCK;
+    if (mb_cur_max < (int) UNISKIP(PERL_UNICODE_MAX)) {
+        restore_toggled_locale_i(LC_CTYPE_INDEX_, orig_CTYPE_locale);
+        return false;
+    }
+
+#      endif
 #      if defined(HAS_MBTOWC) || defined(HAS_MBRTOWC)
 
     /* If libc mbtowc() evaluates the bytes that form the REPLACEMENT CHARACTER
