@@ -56,7 +56,7 @@
 #  undef HAS_NL_LANGINFO
 #  undef HAS_NL_LANGINFO_L
 #  undef _UCRT
-#  ifdef USE_LOCALE
+#  ifndef NO_LOCALE
 #    define TS_W32_BROKEN_LOCALECONV
 #    ifdef USE_THREADS
 #      define EMULATE_THREAD_SAFE_LOCALES
@@ -7212,7 +7212,7 @@ the plain locale pragma without a parameter (S<C<use locale>>) is in effect.
         if (arg != 0) na = arg;                                      \
         old;                                                            \
      })
-#  define _configthreadlocale(arg)  configthreadlocale_(arg, my_perl->Ina)                                      \
+#  define _configthreadlocale(arg)  configthreadlocale_(arg, my_perl->Ina) \
     /* This function is coerced by this Configure option into cleaning up
      * memory that is static to locale.c.  So we call it at termination.  Doing
      * it this way is kludgy but confines having to deal with this
