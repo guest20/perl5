@@ -6397,24 +6397,45 @@ S_my_langinfo_i(pTHX_
          * (Originally this used snprintf(), but some Windows implementations
          * of that are non-conforming -- not locale-dependent.) */
 
+#      if defined(WIN32)                                        \
+       && defined(_MSC_VER)                                     \
+       && ! defined(WIN32_USE_FAKE_OLD_MINGW_LOCALES)
+
+        _locale_t numeric_obj = _wcreate_locale(LC_ALL,
+                                            Win_utf8_string_to_wstring(locale));
+
+#        define STRTOD(string)  _strtod_l(string, NULL, numeric_obj)
+#        define STRTOD_SETUP
+#        define STRTOD_TEARDOWN _free_locale(numeric_obj)
+#      else
+
         /* We don't have to toggle LC_CTYPE here because all locales Perl
          * supports are compatible with ASCII, which the two possibilities are.
          * */
         const char * orig_switched_locale = toggle_locale_c(LC_NUMERIC, locale);
-        LC_NUMERIC_LOCK(0);
+
+#        define STRTOD(string)  strtod(string, NULL)
+#        define STRTOD_SETUP  LC_NUMERIC_LOCK(0);
+#        define STRTOD_TEARDOWN                                             \
+            STMT_START {                                                    \
+                LC_NUMERIC_UNLOCK;                                          \
+                restore_toggled_locale_c(LC_NUMERIC, orig_switched_locale); \
+            } STMT_END;
+#      endif
+
+        STRTOD_SETUP;
 
         /* Comma tried first in case strtod() always accepts dot no matter the
          * locale */
         const char * radix = NULL;
-        if (strtod("1,5", NULL) > 1.4) {
+        if (STRTOD("1,5") > 1.4) {
             radix = ",";
         }
-        else if (strtod("1.5", NULL) > 1.4) {
+        else if (STRTOD("1.5") > 1.4) {
             radix = ".";
         }
 
-        LC_NUMERIC_UNLOCK;
-        restore_toggled_locale_c(LC_NUMERIC, orig_switched_locale);
+        STRTOD_TEARDOWN;
 
         if (radix) {
             retval = save_to_buffer(radix, retbufp, retbuf_sizep);
