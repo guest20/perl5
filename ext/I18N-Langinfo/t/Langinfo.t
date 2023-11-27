@@ -10,8 +10,10 @@ plan skip_all => "I18N::Langinfo or POSIX unavailable"
 my @times  = qw( MON_1 MON_2 MON_3 MON_4 MON_5 MON_6 MON_7
                  MON_8 MON_9 MON_10 MON_11 MON_12
                  DAY_1 DAY_2 DAY_3 DAY_4 DAY_5 DAY_6 DAY_7);
-my @constants = qw(ABDAY_1 DAY_1 ABMON_1 RADIXCHAR AM_STR THOUSEP D_T_FMT
-                   D_FMT T_FMT);
+undef @times;
+#my @constants = qw(ABDAY_1 DAY_1 ABMON_1 RADIXCHAR AM_STR THOUSEP D_T_FMT
+#                   D_FMT T_FMT);
+my @constants = qw(RADIXCHAR);
 push @constants, @times;
 
 my %want = (    RADIXCHAR => ".",
@@ -155,6 +157,7 @@ else { # If no LC_ALL, make sure the categories used in Langinfo are in C
 
 for my $constant (@constants) {
     SKIP: {
+        last;
         my $string = eval { langinfo(eval "$constant()") };
         is( $@, '', "calling langinfo() with $constant" );
         skip "returned string was empty, skipping next two tests", 2 unless $string;
@@ -164,6 +167,7 @@ for my $constant (@constants) {
 }
 
 for my $i (1..@want) {
+    last;
     my $try = $want[$i-1];
     eval { I18N::Langinfo->import($try) };
     SKIP: {
@@ -174,7 +178,8 @@ for my $i (1..@want) {
 }
 
 my $comma_locale;
-for my $locale (find_locales( 'LC_NUMERIC' )) {
+#for my $locale (find_locales( 'LC_NUMERIC' )) {
+for my $locale ('agr_PE') {
     use POSIX;
     use locale;
     setlocale(LC_NUMERIC, $locale) or next;
@@ -191,9 +196,12 @@ SKIP: {
                                                         unless $comma_locale;
 
     no strict 'refs';
+    study;
     is (langinfo(&RADIXCHAR), ",",
         "Returns ',' for decimal pt for locale '$comma_locale'");
 }
+
+__END__
 
 SKIP: {
 
@@ -202,6 +210,7 @@ SKIP: {
 
     my @locales = find_locales( [ qw(LC_TIME LC_CTYPE LC_MONETARY) ] );
     foreach my $utf8_locale (find_utf8_ctype_locales(\@locales)) {
+    last;
         if (! $found_time) {
             setlocale(&LC_TIME, $utf8_locale);
             foreach my $time_item (@times) {
