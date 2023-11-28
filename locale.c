@@ -7108,7 +7108,8 @@ value is a pointer to the formatted result (which MUST be arranged to be FREED
 BY THE CALLER).  This allows these functions to increase the buffer size as
 needed, so that the caller doesn't have to worry about that.
 
-On failure they return NULL, and set errno to C<EINVAL>.
+On failure, they return NULL, and if the platform doesn't set C<errno>, the
+functions set it to C<EINVAL>.
 
 C<sv_strftime_tm> and C<sv_strftime_ints> are preferred, as they transparently
 handle the UTF-8ness of the current locale, the input C<fmt>, and the returned
@@ -7211,6 +7212,7 @@ S_strftime_tm(pTHX_ const char *fmt, const struct tm *mytm)
         GCC_DIAG_IGNORE_STMT(-Wformat-nonliteral);
 
         STRFTIME_LOCK;
+        errno = 0;
         int len = strftime(buf, bufsize, fmt, mytm);
         STRFTIME_UNLOCK;
 
@@ -7225,11 +7227,21 @@ S_strftime_tm(pTHX_ const char *fmt, const struct tm *mytm)
             goto strftime_return;
         }
 
+#ifdef EINVAL
+
         /* There are several possible reasons for a 0 return code for a
-         * non-empty format, and they are not trivial to tease apart.  This
-         * issue is a known bug in the strftime() API.  What we do to cope is
-         * to assume that the reason is not enough space in the buffer, so
-         * increase it and try again. */
+         * non-empty format.  Some platforms set errno when the input is
+         * invalid */
+        if (errno == EINVAL) {
+            goto libc_has_already_set_errno;
+        }
+
+#endif
+
+        /* Otherwise the reasons are not trivial to tease apart.  This issue is
+         * a known bug in the strftime() API.  What we do to cope is to assume
+         * that the reason is not enough space in the buffer, so increase it
+         * and try again. */
         bufsize *= 2;
 
         /* But don't just keep increasing the size indefinitely.  Stop when it
@@ -7263,8 +7275,12 @@ S_strftime_tm(pTHX_ const char *fmt, const struct tm *mytm)
      * that the string is syntactically invalid for the locale.  On some
      * platforms an invalid conversion specifier '%?' (for all illegal '?') is
      * treated as a literal, but others may fail when '?' is illegal */
-    Safefree(buf);
+
     SET_EINVAL;
+
+  libc_has_already_set_errno:
+
+    Safefree(buf);
     buf = NULL;
 
   strftime_return:
