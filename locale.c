@@ -6360,17 +6360,6 @@ S_my_langinfo_i(pTHX_
      * but they are not exposed.  Also calling setlocale(), then calling
      * GetThreadLocale() doesn't work, as the former doesn't change the
      * latter's return.  Therefore we are stuck using the mechanisms below. */
-
-#    ifdef WE_MUST_DEAL_WITH_MISMATCHED_CTYPE
-
-    const char * orig_CTYPE_locale = toggle_locale_c(LC_CTYPE, locale);
-
-#    endif
-
-    const char * orig_switched_locale = toggle_locale_i(cat_index, locale);
-
-    /* Here, we are in the locale we want information about */
-
     /* Almost all the items will have ASCII return values.  Set that here, and
      * override if necessary */
     utf8ness_t is_utf8 = UTF8NESS_IMMATERIAL;
@@ -6639,6 +6628,12 @@ S_my_langinfo_i(pTHX_
 
             GCC_DIAG_RESTORE_STMT;
 
+#    ifdef WE_MUST_DEAL_WITH_MISMATCHED_CTYPE
+
+            const char * orig_CTYPE_locale = toggle_locale_c(LC_CTYPE, locale);
+#    endif
+            const char * orig_switched_locale = toggle_locale_c(LC_TIME,locale);
+
             /* The year was deliberately chosen so that January 1 is on the
              * first day of the week.  Since we're only getting one thing at a
              * time, it all works */
@@ -6662,6 +6657,13 @@ S_my_langinfo_i(pTHX_
             retval = save_to_buffer(temp, retbufp, retbuf_sizep);
             retval_saved = true;
             Safefree(temp);
+
+            restore_toggled_locale_c(LC_TIME, orig_switched_locale);
+
+#    ifdef WE_MUST_DEAL_WITH_MISMATCHED_CTYPE
+
+            restore_toggled_locale_c(LC_CTYPE, orig_CTYPE_locale);
+#    endif
 
             /* If the item is 'ALT_DIGITS', '*retbuf' contains the alternate
              * format for wday 0.  If the value is the same as the normal 0,
@@ -6731,10 +6733,15 @@ S_my_langinfo_i(pTHX_
                                 Perl_form(aTHX_ "%d", ___lc_codepage_func())
 #        endif
 
+        const char * orig_CTYPE_locale = toggle_locale_c(LC_CTYPE, locale);
         LC_CTYPE_LOCK;
 
         retval = save_to_buffer(GET_CODE_PAGE_AS_STRING, retbufp, retbuf_sizep);
         retval_saved = true;
+
+        LC_CTYPE_UNLOCK;
+
+        restore_toggled_locale_c(LC_CTYPE, orig_CTYPE_locale);
 
         DEBUG_Lv(PerlIO_printf(Perl_debug_log, "locale='%s' cp=%s\n",
                                                locale, retval));
