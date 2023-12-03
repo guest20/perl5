@@ -369,6 +369,13 @@ static int debug_initialization = 0;
 #define PERL_IN_LOCALE_C
 #include "perl.h"
 
+/* Some platforms require LC_CTYPE to be congruent with the category we are
+ * looking for.  XXX This still presumes that we have to match COLLATE and
+ * CTYPE even on platforms that apparently handle this. */
+#if defined(USE_LOCALE_CTYPE) && ! defined(LIBC_HANDLES_MISMATCHED_CTYPE)
+#  define WE_MUST_DEAL_WITH_MISMATCHED_CTYPE
+#endif
+
 #if PERL_VERSION_GT(5,39,9)
 #  error Revert the commit that added this line
 #endif
@@ -5681,12 +5688,12 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
 
 #    define MULTIPLICITY_UNLOCK  gwLOCALE_UNLOCK
 #  endif
-#  ifndef USE_LOCALE_CTYPE
+
+   /* Setup any LC_CTYPE handling */
+#  ifndef WE_MUST_DEAL_WITH_MISMATCHED_CTYPE
 #    define CTYPE_TEARDOWN
 #  else
 
-    /* Some platforms require LC_CTYPE to be congruent with the category we are
-     * looking for */
     const char * orig_CTYPE_locale = toggle_locale_c(LC_CTYPE, locale);
 
 #    define CTYPE_TEARDOWN                                                  \
@@ -6302,7 +6309,7 @@ S_my_langinfo_i(pTHX_
 
 /*--------------------------------------------------------------------------*/
 #  if defined(HAS_NL_LANGINFO) /* nl_langinfo() is available.  */
-#    ifdef USE_LOCALE_CTYPE
+#    ifdef WE_MUST_DEAL_WITH_MISMATCHED_CTYPE
 
     /* This function sorts out if things actually have to be switched or not,
      * for both save and restore. */
@@ -6324,7 +6331,7 @@ S_my_langinfo_i(pTHX_
 
     restore_toggled_locale_i(cat_index, orig_switched_locale);
 
-#    ifdef USE_LOCALE_CTYPE
+#    ifdef WE_MUST_DEAL_WITH_MISMATCHED_CTYPE
 
     restore_toggled_locale_c(LC_CTYPE, orig_CTYPE_locale);
 
@@ -6346,7 +6353,7 @@ S_my_langinfo_i(pTHX_
      * GetThreadLocale() doesn't work, as the former doesn't change the
      * latter's return.  Therefore we are stuck using the mechanisms below. */
 
-#    ifdef USE_LOCALE_CTYPE
+#    ifdef WE_MUST_DEAL_WITH_MISMATCHED_CTYPE
 
     const char * orig_CTYPE_locale = toggle_locale_c(LC_CTYPE, locale);
 
@@ -7059,7 +7066,7 @@ S_my_langinfo_i(pTHX_
 
     restore_toggled_locale_i(cat_index, orig_switched_locale);
 
-#    ifdef USE_LOCALE_CTYPE
+#    ifdef WE_MUST_DEAL_WITH_MISMATCHED_CTYPE
     restore_toggled_locale_c(LC_CTYPE, orig_CTYPE_locale);
 #    endif
 
@@ -7171,7 +7178,7 @@ S_strftime_tm(pTHX_ const char *fmt, const struct tm *mytm)
 #ifndef HAS_STRFTIME
     Perl_croak(aTHX_ "panic: no strftime");
 #else
-#  if defined(USE_LOCALE_CTYPE) && defined(USE_LOCALE_TIME)
+#  if defined(WE_MUST_DEAL_WITH_MISMATCHED_CTYPE) && defined(USE_LOCALE_TIME)
 
     const char * orig_CTYPE_LOCALE = toggle_locale_c(LC_CTYPE,
                                                      querylocale_c(LC_TIME));
@@ -7252,7 +7259,7 @@ S_strftime_tm(pTHX_ const char *fmt, const struct tm *mytm)
 
   strftime_return:
 
-#  if defined(USE_LOCALE_CTYPE) && defined(USE_LOCALE_TIME)
+#  if defined(WE_MUST_DEAL_WITH_MISMATCHED_CTYPE) && defined(USE_LOCALE_TIME)
 
     restore_toggled_locale_c(LC_CTYPE, orig_CTYPE_LOCALE);
 
