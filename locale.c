@@ -5516,7 +5516,6 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
      * NUMERIC strings */
     const char * orig_NUMERIC_locale = NULL;
     if (which_mask & OFFSET_TO_BIT(NUMERIC_OFFSET)) {
-        LC_NUMERIC_LOCK(0);
 
 #      if defined(WIN32)
 
