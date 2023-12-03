@@ -4641,7 +4641,7 @@ S_is_locale_utf8(pTHX_ const char * locale)
     const int mb_cur_max = MB_CUR_MAX;
     LC_CTYPE_UNLOCK;
     if (mb_cur_max < (int) UNISKIP(PERL_UNICODE_MAX)) {
-        restore_toggled_locale_i(LC_CTYPE_INDEX_, orig_CTYPE_locale);
+        restore_toggled_locale_c(LC_CTYPE, orig_CTYPE_locale);
         return false;
     }
 
@@ -4655,7 +4655,7 @@ S_is_locale_utf8(pTHX_ const char * locale)
     (void) Perl_mbtowc_(aTHX_ NULL, NULL, 0);/* Reset shift state */
     int mbtowc_ret = Perl_mbtowc_(aTHX_ &wc,
                                   STR_WITH_LEN(REPLACEMENT_CHARACTER_UTF8));
-    restore_toggled_locale_i(LC_CTYPE_INDEX_, orig_CTYPE_locale);
+    restore_toggled_locale_c(LC_CTYPE, orig_CTYPE_locale);
     return (   mbtowc_ret == STRLENs(REPLACEMENT_CHARACTER_UTF8)
             && wc == UNICODE_REPLACEMENT);
 
@@ -4695,7 +4695,7 @@ S_is_locale_utf8(pTHX_ const char * locale)
                                                             locale, retval));
 #      ifndef HAS_SOME_LANGINFO
 
-    restore_toggled_locale_i(LC_CTYPE_INDEX_, orig_CTYPE_locale);
+    restore_toggled_locale_c(LC_CTYPE, orig_CTYPE_locale);
 
 #      endif
 
