@@ -2103,10 +2103,14 @@ S_bool_setlocale_emulate_safe_r(pTHX_
 
     assert(wanted_locale);
 
+    DEBUG_U(PerlIO_printf( Perl_debug_log, "unlocked, setting %s to %s\n",
+                           category_names[get_category_index(category)],
+                           wanted_locale));
     STDIZED_SETLOCALE_LOCK;
     const char * new_locale = savepv(stdized_setlocale(category,
                                                        wanted_locale));
     STDIZED_SETLOCALE_UNLOCK;
+    DEBUG_U(PerlIO_printf( Perl_debug_log, "finished set %d to %s\n", category, wanted_locale));
 
     if (! new_locale) {
         SET_EINVAL;
@@ -2119,23 +2123,23 @@ S_bool_setlocale_emulate_safe_r(pTHX_
 
 #  ifdef USE_LOCALE_NUMERIC
 
-    if (category == LC_NUMERIC) {
+    if (0 && category == LC_NUMERIC) {
         if (inRANGE(caller_line,
                     toggle_locale_i_begin_line(),
                     toggle_locale_i_end_line()))
         {
-            PL_toggle_depth++;
+            PL_NUMERIC_toggle_depth++;
             DEBUG_U(PerlIO_printf( Perl_debug_log,
-                "PL_toggle_depth=%d, locale=%s, category=%d, called_from=%" LINE_Tf "\n", PL_toggle_depth, wanted_locale, category, caller_line));
+                "PL_NUMERIC_toggle_depth=%d, locale=%s, category=%d, called_from=%" LINE_Tf "\n", PL_NUMERIC_toggle_depth, wanted_locale, category, caller_line));
         }
         else if (inRANGE(caller_line,
                          untoggle_locale_i_begin_line(),
                          untoggle_locale_i_end_line()))
         {
-            PL_toggle_depth--;
+            PL_NUMERIC_toggle_depth--;
             DEBUG_U(PerlIO_printf( Perl_debug_log,
-                "PL_toggle_depth=%d, locale=%s, category=%d, called_from=%" LINE_Tf "\n", PL_toggle_depth, wanted_locale, category, caller_line));
-            assert(PL_toggle_depth >= 0);
+                "PL_NUMERIC_toggle_depth=%d, locale=%s, category=%d, called_from=%" LINE_Tf "\n", PL_NUMERIC_toggle_depth, wanted_locale, category, caller_line));
+            assert(PL_NUMERIC_toggle_depth >= 0);
         }
     }
 
@@ -2205,7 +2209,7 @@ Perl_category_lock_i(pTHX_ const locale_category_index cat_index,
     PERL_UNUSED_ARG(file);
 #  endif
 
-    DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+    DEBUG_U(PerlIO_printf(Perl_debug_log,
                            "Entering category_lock_i %s;"
                            " called from %s: %d\n",
                            category_names[cat_index], file,  caller_line));
@@ -2230,6 +2234,7 @@ Perl_category_lock_i(pTHX_ const locale_category_index cat_index,
         else {
             /* If the underlying numeric locale is supposed to be
              * indistinguishable from the standard C locale, ... */
+#if 0
             DEBUG_U(PerlIO_printf( Perl_debug_log,
                     "\nPL_toggle_depth=%d\n"
                     "PL_numeric_underlying_is_standard=%d\n"
@@ -2238,14 +2243,15 @@ Perl_category_lock_i(pTHX_ const locale_category_index cat_index,
                     "NOT_IN_NUMERIC_UNDERLYING_=%d\n"
                     "PL_curlocales[i]=%s\n"
                     "PL_numeric_name=%s\n",
-                    PL_toggle_depth,
+                    PL_NUMERIC_toggle_depth,
                     PL_numeric_underlying_is_standard,
                     PL_numeric_underlying,
                     PL_numeric_standard,
                     NOT_IN_NUMERIC_UNDERLYING_,
                     PL_curlocales[cat_index],
                     PL_numeric_name));
-            if (PL_toggle_depth) {
+#endif
+            if (PL_NUMERIC_toggle_depth) {
                 wanted = PL_curlocales[LC_NUMERIC_INDEX_];
             }
             else if (PL_numeric_underlying_is_standard) {
@@ -2289,7 +2295,7 @@ Perl_category_lock_i(pTHX_ const locale_category_index cat_index,
 #  endif
         assert(wanted);
 
-        DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+        DEBUG_U(PerlIO_printf(Perl_debug_log,
                                "%s: wanted=%s\n",
                                category_names[cat_index], wanted));
 
@@ -2300,7 +2306,7 @@ Perl_category_lock_i(pTHX_ const locale_category_index cat_index,
         /* If we aren't in the desired locale, change to it, saving a copy of
          * the one we actually are in before the change */
         if (strNE(currently, wanted)) {
-            DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+            DEBUG_U(PerlIO_printf(Perl_debug_log,
                      "%s:%d: Calling setlocale(%d, %s)\n", file,  caller_line,
                      cat, wanted));
             if (stdized_setlocale(cat, wanted) == NULL) {
@@ -2310,7 +2316,7 @@ Perl_category_lock_i(pTHX_ const locale_category_index cat_index,
             }
         }
         else {
-            DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+            DEBUG_U(PerlIO_printf(Perl_debug_log,
                     "%s: %d: Category %d already was %s\n",
                     file,  caller_line, cat, wanted));
         }
@@ -2336,14 +2342,14 @@ Perl_category_lock_i(pTHX_ const locale_category_index cat_index,
         /* Indicate our new recursion depth */
         PL_restore_locale_depth[cat_index]++;
 
-        DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+        DEBUG_U(PerlIO_printf(Perl_debug_log,
                                "%s:%d: PL_restore is now %s,"
                                " recursion depth=%zu\n",
                                file, caller_line, PL_restore_locale[cat_index],
                                PL_restore_locale_depth[cat_index]));
     }
 
-    DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+    DEBUG_U(PerlIO_printf(Perl_debug_log,
                            "Leaving category_lock_i: %s\n",
                            category_names[cat_index]));
 
@@ -2362,7 +2368,7 @@ Perl_category_unlock_i(pTHX_ const locale_category_index cat_index,
     /* Undoes a matching category_lock().  Note that must be locked on input.
      * Will unlock when recursion entirely gets unwound */
 
-    DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+    DEBUG_U(PerlIO_printf(Perl_debug_log,
                            "Entering category_unlock_i %s;"
                            " called from %s: %d\n",
                            category_names[cat_index], file,  caller_line));
@@ -2384,7 +2390,7 @@ Perl_category_unlock_i(pTHX_ const locale_category_index cat_index,
 
             /* If we need to change, do it */
             if (strNE(currently, wanted)) {
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                DEBUG_U(PerlIO_printf(Perl_debug_log,
                          "%s:%d: Calling setlocale(%d, %s)\n",
                          file,  caller_line, cat, wanted));
                 if (stdized_setlocale(cat, wanted) == NULL) {
@@ -2396,7 +2402,7 @@ Perl_category_unlock_i(pTHX_ const locale_category_index cat_index,
                 }
             }
             else {
-                DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+                DEBUG_U(PerlIO_printf(Perl_debug_log,
                         "%s: %d: Category %d already was %s\n",
                         file,  caller_line, cat, wanted));
             }
@@ -2409,7 +2415,7 @@ Perl_category_unlock_i(pTHX_ const locale_category_index cat_index,
     /* Doesn't actually unlock until recursion fully unwound */
     LOCALE_UNLOCK;
 
-    DEBUG_Lv(PerlIO_printf(Perl_debug_log,
+    DEBUG_U(PerlIO_printf(Perl_debug_log,
                            "Leaving category_unlock_i: %s\n",
                            category_names[cat_index]));
 
@@ -6165,7 +6171,6 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
 
 #    define CTYPE_TEARDOWN                                                  \
                        restore_toggled_locale_c(LC_CTYPE, orig_CTYPE_locale)
-#    endif
 #  endif
 
    /* Setup any LC_NUMERIC handling */
@@ -9565,6 +9570,15 @@ S_toggle_locale_i(pTHX_ const locale_category_index cat_index,
                          __FILE__, caller_line);
     }
 
+#  ifdef EMULATE_THREAD_SAFE_LOCALES
+
+    if (cat_index == LC_NUMERIC_INDEX_  || cat_index == LC_ALL_INDEX_) {
+        PL_NUMERIC_toggle_depth++;
+        //DEBUG_U(PerlIO_printf( Perl_debug_log, "new depth=%d, index=%d, locale=%s, caller=%" LINE_Tf "\n", PL_NUMERIC_toggle_depth, cat_index, new_locale, caller_line)); 
+    }
+
+#  endif
+
     /* If the locales are the same, there's nothing to do */
     if (strEQ(locale_to_restore_to, new_locale)) {
         DEBUG_Lv(PerlIO_printf(Perl_debug_log, "%s locale unchanged as %s\n",
@@ -9612,6 +9626,18 @@ S_restore_toggled_locale_i(pTHX_ const locale_category_index cat_index,
 
     PERL_ARGS_ASSERT_RESTORE_TOGGLED_LOCALE_I;
     assert(cat_index <= LC_ALL_INDEX_);
+
+#  ifdef EMULATE_THREAD_SAFE_LOCALES
+
+    if (cat_index == LC_NUMERIC_INDEX_  || cat_index == LC_ALL_INDEX_) {
+        PL_NUMERIC_toggle_depth--;
+        //DEBUG_U(PerlIO_printf( Perl_debug_log, "new depth=%d, index=%d, locale=%s, caller=%" LINE_Tf "\n", PL_NUMERIC_toggle_depth, cat_index, restore_locale, caller_line)); 
+        if (PL_NUMERIC_toggle_depth < 0) {
+            locale_panic_("toggling down failed");
+        }
+    }
+
+#  endif
 
     if (restore_locale == NULL) {
         DEBUG_Lv(PerlIO_printf(Perl_debug_log,
@@ -10479,6 +10505,11 @@ Perl_thread_locale_term(pTHX)
     }
 
     PL_cur_locale_obj = LC_GLOBAL_LOCALE;
+
+#endif
+#if defined(EMULATE_THREAD_SAFE_LOCALES)
+
+    assert(aTHX == 0 || PL_NUMERIC_toggle_depth == 0);
 
 #endif
 #ifdef WIN32_USE_FAKE_OLD_MINGW_LOCALES

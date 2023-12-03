@@ -7591,8 +7591,10 @@ cannot have changed since the precalculation.
 /* We can lock the category to stay in the C locale, making requests to the
  * contrary be noops, in the dynamic scope by setting PL_numeric_standard to 2.
  * */
+// XXX this doesn't do what I expect
 #  define NOT_IN_NUMERIC_UNDERLYING_                                        \
                     (! PL_numeric_underlying && PL_numeric_standard < 2)
+// ! (underlying || standard >= 2)
 
 #  define DECLARATION_FOR_LC_NUMERIC_MANIPULATION                           \
     void (*_restore_LC_NUMERIC_function)(pTHX_ const char * const file,     \
