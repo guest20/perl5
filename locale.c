@@ -3916,8 +3916,12 @@ S_new_numeric(pTHX_ const char *newnum, bool force)
     }
 
     /* We are in the underlying locale until changed at the end of this
-     * function */
+     * function.  We don't know about if this is standard or not, so make
+     * things false so that the calculation of the new radix actually happens.
+     * */
     PL_numeric_underlying = TRUE;
+    PL_numeric_standard = false;
+    PL_numeric_underlying_is_standard = true;   /* Illegal combination */
 
     char * radix = NULL;
     utf8ness_t utf8ness = UTF8NESS_IMMATERIAL;
