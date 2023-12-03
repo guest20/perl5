@@ -397,8 +397,6 @@ static int debug_initialization = 0;
 #  undef P_CS_PRECEDES
 #  undef CURRENCY_SYMBOL
 #  define CP_UTF8 -1
-#  undef _configthreadlocale
-#  define _configthreadlocale(arg) NOOP
 
 #  define MultiByteToWideChar(cp, flags, byte_string, m1, wstring, req_size) \
                     (PERL_UNUSED_ARG(cp),                                    \
