@@ -6374,6 +6374,7 @@ S_my_langinfo_i(pTHX_
     /* Almost all the items will have ASCII return values.  Set that here, and
      * override if necessary */
     utf8ness_t is_utf8 = UTF8NESS_IMMATERIAL;
+    bool retval_saved = false;
 
     switch (item) {
       default:
@@ -6519,6 +6520,7 @@ S_my_langinfo_i(pTHX_
 
         /* Here, 'string' contains the value we want to return */
         retval = save_to_buffer(SvPV_nolen(string), retbufp, retbuf_sizep);
+        retval_saved = true;
 
         if (utf8ness) {
             is_utf8 = get_locale_string_utf8ness_i(retval,
@@ -6658,6 +6660,7 @@ S_my_langinfo_i(pTHX_
             }
 
             retval = save_to_buffer(temp, retbufp, retbuf_sizep);
+            retval_saved = true;
             Safefree(temp);
 
             /* If the item is 'ALT_DIGITS', '*retbuf' contains the alternate
@@ -6731,6 +6734,7 @@ S_my_langinfo_i(pTHX_
         LC_CTYPE_LOCK;
 
         retval = save_to_buffer(GET_CODE_PAGE_AS_STRING, retbufp, retbuf_sizep);
+        retval_saved = true;
 
         DEBUG_Lv(PerlIO_printf(Perl_debug_log, "locale='%s' cp=%s\n",
                                                locale, retval));
@@ -6786,6 +6790,7 @@ S_my_langinfo_i(pTHX_
             /* The code set name is considered to be everything between the dot
              * and the '@' */
             retval = save_to_buffer(retval, retbufp, retbuf_sizep);
+            retval_saved = true;
         }
 
 #        ifndef HAS_DEFINITIVE_UTF8NESS_DETERMINATION
@@ -6815,6 +6820,10 @@ S_my_langinfo_i(pTHX_
 
     if (utf8ness) {
         *utf8ness = is_utf8;
+    }
+
+    if (! retval_saved) {
+        retval = save_to_buffer(retval, retbufp, retbuf_sizep);
     }
 
     DEBUG_Lv(PerlIO_printf(Perl_debug_log,
