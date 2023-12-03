@@ -6719,20 +6719,18 @@ S_my_langinfo_i(pTHX_
         }
 
 #      ifdef WIN32
+#        ifdef WIN32_USE_FAKE_OLD_MINGW_LOCALES
+#          define GET_CODE_PAGE_AS_STRING  nl_langinfo(CODESET)
+#        else
+            /* This function retrieves the code page.  It is subject to change,
+             * but is documented and has been stable for many releases */
+#          define GET_CODE_PAGE_AS_STRING                                   \
+                                Perl_form(aTHX_ "%d", ___lc_codepage_func())
+#        endif
 
         LC_CTYPE_LOCK;
 
-#        ifndef WIN32_USE_FAKE_OLD_MINGW_LOCALES
-
-        /* This function retrieves the code page.  It is subject to change, but
-         * is documented and has been stable for many releases */
-        retval = save_to_buffer(Perl_form(aTHX_ "%d", ___lc_codepage_func()),
-                                retbufp, retbuf_sizep);
-#        else
-
-        retval = save_to_buffer(nl_langinfo(CODESET),
-                                retbufp, retbuf_sizep);
-#        endif
+        retval = save_to_buffer(GET_CODE_PAGE_AS_STRING, retbufp, retbuf_sizep);
 
         DEBUG_Lv(PerlIO_printf(Perl_debug_log, "locale='%s' cp=%s\n",
                                                locale, retval));
