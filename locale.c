@@ -5514,14 +5514,32 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
 #    define IF_CALL_IS_FOR(x)
 #  endif
 
-#    ifdef USE_LOCALE_CTYPE
+    /* This function is unfortunately full of #ifdefs.  It consists of three
+     * sections: setup; do the localeconv(), copying the results; and teardown.
+     * The setup and teardown are highly variable due to the variance in the
+     * possible Configurations.  What is done here to make it slightly more
+     * understandable is the setup section creates the details of the teardown
+     * section, and macroizes them.  So that the finished teardown product is
+     * just a linear series of macros.  You can thus easily see the logic
+     * there.  Stripped of the details, the setup section is just the reverse
+     * order of the teardown one. */
+
+#    ifndef USE_LOCALE_CTYPE
+#      define CTYPE_TEARDOWN
+#    else
 
     /* Some platforms require LC_CTYPE to be congruent with the category we are
      * looking for */
     const char * orig_CTYPE_locale = toggle_locale_c(LC_CTYPE, locale);
 
+#      define CTYPE_TEARDOWN                                                \
+                       restore_toggled_locale_c(LC_CTYPE, orig_CTYPE_locale)
 #    endif
-#    ifdef USE_LOCALE_NUMERIC
+
+   /* Setup any LC_NUMERIC handling */
+#    ifndef USE_LOCALE_NUMERIC
+#      define NUMERIC_TEARDOWN
+#    else
 
     /* We need to toggle the NUMERIC locale to the desired one if we are
      * getting NUMERIC strings */
@@ -5537,19 +5555,38 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
          * unconditionally toggle away from and back to the current locale
          * prior to calling localeconv(). */
         orig_NUMERIC_locale = toggle_locale_c(LC_NUMERIC, "C");
-        toggle_locale_c(LC_NUMERIC, locale);
+        (void) toggle_locale_c(LC_NUMERIC, locale);
+
+#        define NUMERIC_TEARDOWN                                              \
+          STMT_START {                                                      \
+            IF_CALL_IS_FOR(NUMERIC) {                                       \
+                restore_toggled_locale_c(LC_NUMERIC, "C");                  \
+                restore_toggled_locale_c(LC_NUMERIC, orig_NUMERIC_locale);  \
+            }                                                               \
+        } STMT_END
 
 #      else
 
         /* No need for the extra toggle when not on Windows */
         orig_NUMERIC_locale = toggle_locale_c(LC_NUMERIC, locale);
 
+#        define NUMERIC_TEARDOWN                                              \
+         STMT_START {                                                       \
+            IF_CALL_IS_FOR(NUMERIC) {                                       \
+                restore_toggled_locale_c(LC_NUMERIC, orig_NUMERIC_locale);  \
+            }                                                               \
+        } STMT_END
 #      endif
 
     }
 
-#    endif
-#    if defined(USE_LOCALE_MONETARY)
+#  endif
+    
+   /* Setup any LC_MONETARY handling, using the same logic as for
+    * USE_LOCALE_NUMERIC just above */
+#    ifndef USE_LOCALE_MONETARY
+#      define MONETARY_TEARDOWN
+#    else
 
     /* Same logic as LC_NUMERIC, and same Windows bug */
     const char * orig_MONETARY_locale = NULL;
@@ -5558,12 +5595,27 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
 #      ifdef WIN32
 
         orig_MONETARY_locale = toggle_locale_c(LC_MONETARY, "C");
-        toggle_locale_c(LC_MONETARY, locale);
+        (void) toggle_locale_c(LC_MONETARY, locale);
+
+#        define MONETARY_TEARDOWN                                            \
+         STMT_START {                                                       \
+            IF_CALL_IS_FOR(MONETARY) {                                      \
+                restore_toggled_locale_c(LC_MONETARY, "C");                 \
+                restore_toggled_locale_c(LC_MONETARY, orig_MONETARY_locale);\
+            }                                                               \
+        } STMT_END
 
 #      else
 
         /* No need for the extra toggle when not on Windows */
         orig_MONETARY_locale = toggle_locale_c(LC_MONETARY, locale);
+
+#        define MONETARY_TEARDOWN                                             \
+         STMT_START {                                                       \
+            IF_CALL_IS_FOR(MONETARY) {                                      \
+                restore_toggled_locale_c(LC_MONETARY, orig_MONETARY_locale);\
+            }                                                               \
+        } STMT_END
 
 #      endif
 
@@ -5688,25 +5740,9 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
     gwLOCALE_UNLOCK;    /* Finished with the critical section of a
                            globally-accessible buffer */
 
-#    if defined(USE_LOCALE_MONETARY)
-
-    restore_toggled_locale_c(LC_MONETARY, orig_MONETARY_locale);
-
-#    endif
-#    ifdef USE_LOCALE_NUMERIC
-
-    restore_toggled_locale_c(LC_NUMERIC, orig_NUMERIC_locale);
-    IF_CALL_IS_FOR(NUMERIC) {
-        LC_NUMERIC_UNLOCK;
-    }
-
-#    endif
-#    ifdef USE_LOCALE_CTYPE
-
-    restore_toggled_locale_c(LC_CTYPE, orig_CTYPE_locale);
-
-#    endif
-
+    MONETARY_TEARDOWN;
+    NUMERIC_TEARDOWN;
+    CTYPE_TEARDOWN;
 }
 
 #  endif    /* defined(USE_LOCALE_NUMERIC) || defined(USE_LOCALE_MONETARY) */
