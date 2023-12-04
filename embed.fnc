@@ -4408,14 +4408,6 @@ S	|void	|ints_to_tm	|NN struct tm *my_tm			\
 				|int yday				\
 				|int isdst
 S	|bool	|is_locale_utf8 |NN const char *locale
-S	|char * |strftime8	|NN const char *fmt			\
-				|NN const struct tm *mytm		\
-				|const utf8ness_t fmt_utf8ness		\
-				|NN utf8ness_t *result_utf8ness 	\
-				|const bool came_from_sv
-Sf	|char * |strftime_tm	|NN const char *fmt			\
-				|NN const struct tm *mytm
-# if defined(HAS_LOCALECONV)
 S	|HV *	|my_localeconv	|const int item
 S	|void	|populate_hash_from_C_localeconv			\
 				|NN HV *hv				\
@@ -4423,7 +4415,13 @@ S	|void	|populate_hash_from_C_localeconv			\
 				|const PERL_UINT_FAST8_T which_mask	\
 				|NN const lconv_offset_t *strings[2]	\
 				|NN const lconv_offset_t *integers[2]
-# endif
+S	|char * |strftime8	|NN const char *fmt			\
+				|NN const struct tm *mytm		\
+				|const utf8ness_t fmt_utf8ness		\
+				|NN utf8ness_t *result_utf8ness 	\
+				|const bool came_from_sv
+Sf	|char * |strftime_tm	|NN const char *fmt			\
+				|NN const struct tm *mytm
 # if defined(USE_LOCALE)
 S	|const char *|calculate_LC_ALL_string					\
 				|NULLOK const char **category_locales_list	\
@@ -4482,6 +4480,15 @@ RS	|char * |my_setlocale_debug_string_i				\
 				|NULLOK const char *retval		\
 				|const line_t line
 #   endif
+#   if   defined(HAS_LOCALECONV) && \
+       ( defined(USE_LOCALE_MONETARY) || defined(USE_LOCALE_NUMERIC) )
+S	|void	|populate_hash_from_localeconv				\
+				|NN HV *hv				\
+				|NN const char *locale			\
+				|const PERL_UINT_FAST8_T which_mask	\
+				|NN const lconv_offset_t *strings[2]	\
+				|NN const lconv_offset_t *integers[2]
+#   endif
 #   if defined(HAS_NL_LANGINFO) || defined(HAS_NL_LANGINFO_L)
 S	|const char *|my_langinfo_i					\
 				|const nl_item item			\
@@ -4525,14 +4532,6 @@ ST	|bool	|is_codeset_name_UTF8					\
 				|NN const char *name
 S	|void	|new_ctype	|NN const char *newctype		\
 				|bool force
-#   endif
-#   if defined(USE_LOCALE_MONETARY) || defined(USE_LOCALE_NUMERIC)
-S	|void	|populate_hash_from_localeconv				\
-				|NN HV *hv				\
-				|NN const char *locale			\
-				|const PERL_UINT_FAST8_T which_mask	\
-				|NN const lconv_offset_t *strings[2]	\
-				|NN const lconv_offset_t *integers[2]
 #   endif
 #   if defined(USE_LOCALE_NUMERIC)
 S	|void	|new_numeric	|NN const char *newnum			\

@@ -1304,12 +1304,10 @@
 #     define get_locale_string_utf8ness_i(a,b,c,d) S_get_locale_string_utf8ness_i(aTHX_ a,b,c,d)
 #     define ints_to_tm(a,b,c,d,e,f,g,h,i,j)    S_ints_to_tm(aTHX_ a,b,c,d,e,f,g,h,i,j)
 #     define is_locale_utf8(a)                  S_is_locale_utf8(aTHX_ a)
+#     define my_localeconv(a)                   S_my_localeconv(aTHX_ a)
+#     define populate_hash_from_C_localeconv(a,b,c,d,e) S_populate_hash_from_C_localeconv(aTHX_ a,b,c,d,e)
 #     define strftime8(a,b,c,d,e)               S_strftime8(aTHX_ a,b,c,d,e)
 #     define strftime_tm(a,b)                   S_strftime_tm(aTHX_ a,b)
-#     if defined(HAS_LOCALECONV)
-#       define my_localeconv(a)                 S_my_localeconv(aTHX_ a)
-#       define populate_hash_from_C_localeconv(a,b,c,d,e) S_populate_hash_from_C_localeconv(aTHX_ a,b,c,d,e)
-#     endif
 #     if defined(USE_LOCALE)
 #       define calculate_LC_ALL_string(a,b,c,d) S_calculate_LC_ALL_string(aTHX_ a,b,c,d)
 #       define get_category_index_helper(a,b,c) S_get_category_index_helper(aTHX_ a,b,c)
@@ -1323,6 +1321,10 @@
 #       define setlocale_failure_panic_via_i(a,b,c,d,e,f,g) S_setlocale_failure_panic_via_i(aTHX_ a,b,c,d,e,f,g)
 #       if defined(DEBUGGING)
 #         define my_setlocale_debug_string_i(a,b,c,d) S_my_setlocale_debug_string_i(aTHX_ a,b,c,d)
+#       endif
+#       if   defined(HAS_LOCALECONV) && \
+           ( defined(USE_LOCALE_MONETARY) || defined(USE_LOCALE_NUMERIC) )
+#         define populate_hash_from_localeconv(a,b,c,d,e) S_populate_hash_from_localeconv(aTHX_ a,b,c,d,e)
 #       endif
 #       if defined(HAS_NL_LANGINFO) || defined(HAS_NL_LANGINFO_L)
 #         define my_langinfo_i(a,b,c,d,e,f)     S_my_langinfo_i(aTHX_ a,b,c,d,e,f)
@@ -1343,9 +1345,6 @@
 #       if defined(USE_LOCALE_CTYPE)
 #         define is_codeset_name_UTF8           S_is_codeset_name_UTF8
 #         define new_ctype(a,b)                 S_new_ctype(aTHX_ a,b)
-#       endif
-#       if defined(USE_LOCALE_MONETARY) || defined(USE_LOCALE_NUMERIC)
-#         define populate_hash_from_localeconv(a,b,c,d,e) S_populate_hash_from_localeconv(aTHX_ a,b,c,d,e)
 #       endif
 #       if defined(USE_LOCALE_NUMERIC)
 #         define new_numeric(a,b)               S_new_numeric(aTHX_ a,b)
