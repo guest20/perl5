@@ -5545,6 +5545,75 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
      * there.  Stripped of the details, the setup section is just the reverse
      * order of the teardown one. */
 
+#    ifndef WIN32
+#      define WIN32_TEARDOWN      /* There is nothing Windows-related */
+
+#    else
+
+    /* Here is Windows.  All non-MingW versions we now support have a
+     * thread-safe localeconv().  But MingW not built with the Universal C Run
+     * Time library (UCRT) still has a broken localeconv(), returning the
+     * value from the global locale, not this thread's one, so we will have to
+     * disable per-thread locales (if enabled) while using it.  Conversely,
+     * when localeconv() is capable of being thread-safe, we want to switch to
+     * using it thusly to avoid interfering with other threads. */
+#      ifdef TS_W32_BROKEN_LOCALECONV
+#        define WANT_PER_THREAD_LOCALE  _DISABLE_PER_THREAD_LOCALE
+#      else
+#        define WANT_PER_THREAD_LOCALE  _ENABLE_PER_THREAD_LOCALE
+#      endif
+
+    /* If we have either of the above situations, we have to be sure to be in
+     * the appropriate state for each.  But, without MULTIPLICITY, there is only
+     * the global locale, and without threads, it is effectively thread-safe,
+     * so nothing need be done.  And with MULTIPLICITY, we also don't do
+     * anything if localeconv() is sane, and for some reason we aren't supposed
+     * to be using thread-safe locales (this would be a user Configuration
+     * override of normal settings). */
+#      if ! defined(MULTIPLICITY) || (   ! defined(TS_W32_BROKEN_LOCALECONV)    \
+                                      && ! defined(USE_THREAD_SAFE_LOCALE))
+#        define WIN32_TEARDOWN
+#      else
+
+    /* Here in Windows, we want to switch to a specific state of thread-safety.
+     * Do it */
+    int starting_configthreadlocale =
+                                    _configthreadlocale(WANT_PER_THREAD_LOCALE);
+    if (starting_configthreadlocale == -1) {
+        locale_panic_("_configthreadlocale returned an error");
+    }
+#        define WIN32_TEARDOWN    /* Back out at the end */                   \
+          STMT_START {                                                      \
+            if (starting_configthreadlocale != WANT_PER_THREAD_LOCALE) {    \
+                if (_configthreadlocale(starting_configthreadlocale) == -1) {\
+                    locale_panic_("_configthreadlocale returned an error"); \
+                }                                                           \
+            }                                                               \
+          } STMT_END
+
+#      endif
+#    endif    /* Have handled both Windows and non-Windows */
+
+    /* Below we are going to potentially switch locales.  If unthreaded, or if
+     * locale switching is thread-safe, it doesn't matter when we switch,
+     * except on Windows we have to switch CTYPE first because of a bug
+     * described below.  With thread-safe emulation, the code is structured so
+     * that no change is done until an operation actually needs the correct
+     * value, so also there is no need to lock immediately  */
+#    if ! defined(MULTIPLICITY)                                             \
+     ||  (     defined(USE_THREAD_SAFE_LOCALE)                              \
+          && ! defined(TS_W32_BROKEN_LOCALECONV))
+#      define MULTIPLICITY_UNLOCK
+#    else
+
+    /* But otherwise, the switching can affect other threads, so start a
+     * critical section now.  (If localeconv() is the broken Windows variety,
+     * it will be executed in a non-thread-safe environment, so we also have to
+     * lock now.) */
+   gwLOCALE_LOCK;
+
+#      define MULTIPLICITY_UNLOCK  gwLOCALE_UNLOCK
+#    endif
 #    ifndef USE_LOCALE_CTYPE
 #      define CTYPE_TEARDOWN
 #    else
@@ -5650,48 +5719,7 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
      * locks are no-ops when unneeded */
     LOCALECONV_LOCK;
 
-#    if defined(TS_W32_BROKEN_LOCALECONV) && defined(USE_THREAD_SAFE_LOCALE)
-
-    /* This is a workaround for another bug in Windows.  localeconv() was
-     * broken with thread-safe locales prior to VS 15.  It looks at the global
-     * locale instead of the thread one.  As a work-around, we toggle to the
-     * global locale; populate the return; then toggle back.  We have to use
-     * LC_ALL instead of the individual categories because of yet another bug
-     * in Windows.  And this all has to be done in a critical section.
-     *
-     * This introduces a potential race with any other thread that has also
-     * converted to use the global locale, and doesn't protect its locale calls
-     * with mutexes.  khw can't think of any reason for a thread to do so on
-     * Windows, as the locale API is the same regardless of thread-safety,
-     * except if the code is ported from working on another platform where
-     * there might be some reason to do this.  But this is typically due to
-     * some alien-to-Perl library that thinks it owns locale setting.  Such a
-     * library isn't likely to exist on Windows, so such an application is
-     * unlikely to be run on Windows
-     */
-    bool restore_per_thread = FALSE;
-
-    /* Save the per-thread locale state */
-    const char * save_thread = querylocale_c(LC_ALL);
-
-    /* Change to the global locale, and note if we already were there */
-    int config_return = _configthreadlocale(_DISABLE_PER_THREAD_LOCALE);
-    if (config_return != _DISABLE_PER_THREAD_LOCALE) {
-        if (config_return == -1) {
-            locale_panic_("_configthreadlocale returned an error");
-        }
-
-        restore_per_thread = TRUE;
-    }
-
-    /* Save the state of the global locale; then convert to our desired
-     * state.  */
-    const char * save_global = querylocale_c(LC_ALL);
-    void_setlocale_c(LC_ALL, save_thread);
-
-#    endif  /* TS_W32_BROKEN_LOCALECONV */
-
-    /* Finally, do the actual localeconv */
+    /* Finally, do the actual call to localeconv() */
     const char *lcbuf_as_string = (const char *) localeconv();
 
     /* Copy its results for each desired category as determined by 'which_mask'
@@ -5765,6 +5793,8 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
     MONETARY_TEARDOWN;
     NUMERIC_TEARDOWN;
     CTYPE_TEARDOWN;
+    MULTIPLICITY_UNLOCK;
+    WIN32_TEARDOWN;
 }
 
 #  endif    /* defined(USE_LOCALE_NUMERIC) || defined(USE_LOCALE_MONETARY) */
