@@ -4909,6 +4909,19 @@ fields), but directly callable from XS code.
 =cut
 */
 
+/* All Wndows versions we support, except possibly MingW, have general
+ * thread-safety, and even localeconv() is thread safe, returning into a
+ * per-thread buffer.  MingW when built with a modern MS C runtime (UCRT as of
+ * this writing), also has those things.  FreeBSD's localeconv() when used with
+ * uselocale() is supposed to be thread-safe (as is their localeconv_l()), but
+ * we currently don't use thread-safe locales there because of bugs. There may
+ * be other thread-safe localeconv() implementations, especially on *BSD
+ * derivatives, but khw knows of none, and hasn't really investigated, in part
+ * because of the past unreliability of thread-safety claims */
+#if defined(WIN32) && (defined(_MSC_VER) || (defined(_UCRT)))
+#  define LOCALECONV_IS_THREAD_SAFE
+#endif
+
 HV *
 Perl_localeconv(pTHX)
 {
@@ -5497,11 +5510,11 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
 
     /* Run localeconv() and copy some or all of its results to the input 'hv'
      * hash.  Most localeconv() implementations return the values in a global
-     * static buffer, so the operation must be performed in a critical section,
-     * ending only after the copy is completed.  There are so many locks
-     * because localeconv() deals with two categories, and returns in a single
-     * global static buffer.  Some locks might be no-ops on this platform, but
-     * not others.  We need to lock if any one isn't a no-op. */
+     * static buffer, so for them, the operation must be performed in a
+     * critical section, ending only after the copy is completed.  There are so
+     * many locks because localeconv() deals with two categories, and returns
+     * in a single global static buffer.  Some locks might be no-ops on this
+     * platform, but not others.  We need to lock if any one isn't a no-op. */
 
     /* If the call could be for either of the two categories, we need to test
      * which one; but if the Configuration is such that we will never be called
@@ -5513,6 +5526,14 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
 #  else
 #    define IF_CALL_IS_FOR(x)
 #  endif
+
+#    ifdef LOCALECONV_IS_THREAD_SAFE
+#      define LOCALECONV_LOCK
+#      define LOCALECONV_UNLOCK
+#    else
+#      define LOCALECONV_LOCK    gwLOCALE_LOCK
+#      define LOCALECONV_UNLOCK  gwLOCALE_UNLOCK
+#    endif
 
     /* This function is unfortunately full of #ifdefs.  It consists of three
      * sections: setup; do the localeconv(), copying the results; and teardown.
@@ -5623,9 +5644,11 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
 
 #    endif
 
-    /* Finally ready to do the actual localeconv().  Lock to prevent other
-     * accesses until we have made a copy of its returned static buffer */
-    gwLOCALE_LOCK;
+    /* All the setup has been done, and have now switched into the proper
+     * locales for each category needed in this call.  Lock to prevent other
+     * accesses until we have made a copy of the localeconv() buffer.  These
+     * locks are no-ops when unneeded */
+    LOCALECONV_LOCK;
 
 #    if defined(TS_W32_BROKEN_LOCALECONV) && defined(USE_THREAD_SAFE_LOCALE)
 
@@ -5737,8 +5760,7 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
 
 #    endif  /* TS_W32_BROKEN_LOCALECONV */
 
-    gwLOCALE_UNLOCK;    /* Finished with the critical section of a
-                           globally-accessible buffer */
+    LOCALECONV_UNLOCK;
 
     MONETARY_TEARDOWN;
     NUMERIC_TEARDOWN;
