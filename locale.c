@@ -5503,6 +5503,17 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
      * global static buffer.  Some locks might be no-ops on this platform, but
      * not others.  We need to lock if any one isn't a no-op. */
 
+    /* If the call could be for either of the two categories, we need to test
+     * which one; but if the Configuration is such that we will never be called
+     * with one of them, the code for that one won't get compiled below, and
+     * the test is useless, and so omit it by using a macro that expands to
+     * nothing for that case. */
+#  if defined(USE_LOCALE_NUMERIC) && defined(USE_LOCALE_MONETARY)
+#    define IF_CALL_IS_FOR(x)  if (which_mask & OFFSET_TO_BIT(x ## _OFFSET))
+#  else
+#    define IF_CALL_IS_FOR(x)
+#  endif
+
 #    ifdef USE_LOCALE_CTYPE
 
     /* Some platforms require LC_CTYPE to be congruent with the category we are
@@ -5515,7 +5526,7 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
     /* We need to toggle to the underlying NUMERIC locale if we are getting
      * NUMERIC strings */
     const char * orig_NUMERIC_locale = NULL;
-    if (which_mask & OFFSET_TO_BIT(NUMERIC_OFFSET)) {
+    IF_CALL_IS_FOR(NUMERIC) {
 
 #      if defined(WIN32)
 
@@ -5543,7 +5554,7 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
     /* Same Windows bug as described just above for NUMERIC.  Otherwise, no
      * need to toggle LC_MONETARY, as it is kept in the underlying locale */
     const char * orig_MONETARY_locale = NULL;
-    if (which_mask & OFFSET_TO_BIT(MONETARY_OFFSET)) {
+    IF_CALL_IS_FOR(MONETARY) {
         orig_MONETARY_locale = toggle_locale_c(LC_MONETARY, "C");
         toggle_locale_c(LC_MONETARY, locale);
     }
@@ -5675,7 +5686,7 @@ S_populate_hash_from_localeconv(pTHX_ HV * hv,
 #    ifdef USE_LOCALE_NUMERIC
 
     restore_toggled_locale_c(LC_NUMERIC, orig_NUMERIC_locale);
-    if (which_mask & OFFSET_TO_BIT(NUMERIC_OFFSET)) {
+    IF_CALL_IS_FOR(NUMERIC) {
         LC_NUMERIC_UNLOCK;
     }
 
