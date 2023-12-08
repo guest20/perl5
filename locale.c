@@ -9653,7 +9653,6 @@ S_toggle_locale_i(pTHX_ const locale_category_index cat_index,
         DEBUG_Lv(PerlIO_printf(Perl_debug_log, "%s locale unchanged as %s\n",
                                                category_names[cat_index],
                                                new_locale));
-
         return NULL;
     }
 
