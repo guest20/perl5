@@ -47,21 +47,25 @@ which would mean to reference a scalar variable named C<${^CAPTURE}> and
 not index 0 of the magic C<@{^CAPTURE}> array which is populated by the
 regex engine.
 
-Perl identifiers that begin with digits or
-punctuation characters are exempt from the effects of the C<package>
-declaration and are always forced to be in package C<main>; they are
-also exempt from C<strict 'vars'> errors.  A few other names are also
-exempt in these ways:
+Some identifiers are are exempt from the effects of C<package>,
+and are always forced to be in package C<main>; they are also exempt 
+from C<strict 'vars'> errors:
 
-    ENV      STDIN
-    INC      STDOUT
-    ARGV     STDERR
-    ARGVOUT
-    SIG
+=over 4 
 
-In particular, the special C<${^_XYZ}> variables are always taken
-to be in package C<main>, regardless of any C<package> declarations
-presently in scope.
+=item - identifiers that begin with digits, like C<$1>,C<$2> - regex captures.
+
+=item - identifiers that begin with punctuation characters
+
+=item - C<$a> and C<$b> - used by L</sort>
+
+=item - C<STDIN>, C<STDOUT>, and C<STDERR> - the global file handles.
+
+=item - C<ENV> C<INC> C<ARGV> C<ARGVOUT> C<SIG>
+
+=item - special C<${^_XYZ}> variables
+
+=cut
 
 =head1 SPECIAL VARIABLES
 
@@ -118,8 +122,7 @@ abs, alarm, chomp, chop, chr, chroot,
 cos, defined, eval, evalbytes, exp, fc, glob, hex, int, lc,
 lcfirst, length, log, lstat, mkdir, oct, ord, pos, print, printf,
 quotemeta, readlink, readpipe, ref, require, reverse (in scalar context only),
-rmdir, say, sin, split (for its second
-argument), sqrt, stat, study, uc, ucfirst,
+rmdir, say, sin, split (for its second argument), sqrt, stat, study, uc, ucfirst,
 unlink, unpack.
 
 =item *
