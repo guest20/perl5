@@ -65,7 +65,7 @@ from C<strict 'vars'> errors:
 
 =item - special C<${^_XYZ}> variables
 
-=cut
+=back
 
 =head1 SPECIAL VARIABLES
 
