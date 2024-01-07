@@ -57,7 +57,7 @@ from C<strict 'vars'> errors:
 
 =item - identifiers that begin with punctuation characters
 
-=item - C<$a> and C<$b> - used by L</sort>
+=item - C<$a> and C<$b> - used by C<sort>
 
 =item - C<STDIN>, C<STDOUT>, and C<STDERR> - the global file handles.
 
