@@ -17,6 +17,8 @@ IPC::Open3 - open a process for reading, writing, and error handling using open3
 
 =head1 SYNOPSIS
 
+    use IPC::Open3;
+
     use Symbol 'gensym'; # vivify a separate handle for STDERR
     my $pid = open3(my $chld_in, my $chld_out, my $chld_err = gensym,
 		    'some', 'cmd', 'and', 'args');
